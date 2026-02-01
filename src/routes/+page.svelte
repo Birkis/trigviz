@@ -14,16 +14,23 @@
 
 	const circleSize = 340;
 	const plotW = 560;
-	const plotH = 340;
+	const plotH = 380;
 	const pad = 18;
+	const tailW = 240;
+	const tailH = circleSize;
+	const tailPad = 18;
+	const tailMax = 140;
 
 	let sinPath = $state('');
 	let cosPath = $state('');
 	let tanPath = $state('');
 	let tanPenDown = $state(false);
+	let tailSamples = $state<number[]>([]);
 
-	const amp = (plotH - pad * 2) * 0.45;
+	const amp = (plotH - pad * 2) * 0.48;
 	const midY = plotH / 2;
+	const tailMid = tailH / 2;
+	const tailAmp = (tailH - tailPad * 2) * 0.4;
 
 	const cosv = $derived.by(() => Math.cos(phase));
 	const sinv = $derived.by(() => Math.sin(phase));
@@ -44,6 +51,10 @@
 		tanPenDown = false;
 	}
 
+	function resetTail(p: number) {
+		tailSamples = [Math.sin(p)];
+	}
+
 	function xFromPhase(p: number) {
 		return pad + (p / TAU) * (plotW - pad * 2);
 	}
@@ -51,6 +62,20 @@
 	function yFromValue(v: number) {
 		return midY - v * amp;
 	}
+
+	const plotXTicks = [
+		{ label: '0', value: 0 },
+		{ label: 'π/2', value: TAU / 4 },
+		{ label: 'π', value: TAU / 2 },
+		{ label: '3π/2', value: (TAU * 3) / 4 },
+		{ label: '2π', value: TAU }
+	];
+
+	const plotYTicks = [
+		{ label: '1', value: 1 },
+		{ label: '0', value: 0 },
+		{ label: '-1', value: -1 }
+	];
 
 	function appendPath(path: string, x: number, y: number) {
 		const segment = `${x.toFixed(2)} ${y.toFixed(2)}`;
@@ -83,10 +108,16 @@
 				tanPenDown = false;
 			}
 		}
+
+		tailSamples = [...tailSamples, Math.sin(p)];
+		if (tailSamples.length > tailMax) {
+			tailSamples = tailSamples.slice(-tailMax);
+		}
 	}
 
 	function resetAndSample(p: number) {
 		resetTrace();
+		resetTail(p);
 		sampleAt(p);
 	}
 
@@ -96,6 +127,20 @@
 	}
 
 	resetAndSample(0);
+
+	function buildTailPath(samples: number[]) {
+		if (samples.length === 0) return '';
+		const innerW = tailW - tailPad * 2;
+		return samples
+			.map((value, index) => {
+				const x = tailPad + (index / Math.max(1, samples.length - 1)) * innerW;
+				const y = tailMid - value * tailAmp;
+				return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+			})
+			.join(' ');
+	}
+
+	const tailPath = $derived.by(() => buildTailPath(tailSamples));
 
 	let raf = 0;
 	let last = 0;
@@ -128,7 +173,11 @@
 		raf = requestAnimationFrame(tick);
 	});
 
-	onDestroy(() => cancelAnimationFrame(raf));
+	onDestroy(() => {
+		if (typeof window !== 'undefined') {
+			cancelAnimationFrame(raf);
+		}
+	});
 </script>
 
 <div class="flex flex-col gap-6">
@@ -218,49 +267,66 @@
 				<span class="text-xs text-slate-400">projections</span>
 			</div>
 
-			<svg viewBox={`0 0 ${circleSize} ${circleSize}`} class="h-auto w-full">
-				<line x1="0" y1={cy} x2={circleSize} y2={cy} stroke="rgba(255,255,255,0.15)" stroke-width="2" />
-				<line x1={cx} y1="0" x2={cx} y2={circleSize} stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+			<div class="flex flex-col gap-6 lg:flex-row lg:items-center">
+				<svg viewBox={`0 0 ${circleSize} ${circleSize}`} class="h-auto w-full lg:w-[60%]">
+					<line x1="0" y1={cy} x2={circleSize} y2={cy} stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+					<line x1={cx} y1="0" x2={cx} y2={circleSize} stroke="rgba(255,255,255,0.15)" stroke-width="2" />
 
-				<circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" />
+					<circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" />
 
-				<line
-					x1={cx + r * cosv}
-					y1={cy - r * sinv}
-					x2={cx + r * cosv}
-					y2={cy}
-					stroke="rgb(16,185,129)"
-					stroke-width="2"
-					stroke-dasharray="6 6"
-				/>
-				<line
-					x1={cx + r * cosv}
-					y1={cy - r * sinv}
-					x2={cx}
-					y2={cy - r * sinv}
-					stroke="rgb(59,130,246)"
-					stroke-width="2"
-					stroke-dasharray="6 6"
-				/>
+					<line
+						x1={cx + r * cosv}
+						y1={cy - r * sinv}
+						x2={cx + r * cosv}
+						y2={cy}
+						stroke="rgb(16,185,129)"
+						stroke-width="2"
+						stroke-dasharray="6 6"
+					/>
+					<line
+						x1={cx + r * cosv}
+						y1={cy - r * sinv}
+						x2={cx}
+						y2={cy - r * sinv}
+						stroke="rgb(59,130,246)"
+						stroke-width="2"
+						stroke-dasharray="6 6"
+					/>
 
-				<line
-					x1={cx}
-					y1={cy}
-					x2={cx + r * cosv}
-					y2={cy - r * sinv}
-					stroke="rgb(244,63,94)"
-					stroke-width="3"
-					stroke-linecap="round"
-				/>
-				<circle cx={cx + r * cosv} cy={cy - r * sinv} r="6" fill="rgb(244,63,94)" />
+					<line
+						x1={cx}
+						y1={cy}
+						x2={cx + r * cosv}
+						y2={cy - r * sinv}
+						stroke="rgb(244,63,94)"
+						stroke-width="3"
+						stroke-linecap="round"
+					/>
+					<circle cx={cx + r * cosv} cy={cy - r * sinv} r="6" fill="rgb(244,63,94)" />
 
-				<text x={pad} y={pad + 6} font-size="14" fill="rgba(255,255,255,0.9)">
-					(cos, sin) = ({cosv.toFixed(3)}, {sinv.toFixed(3)})
-				</text>
-				<text x={pad} y={pad + 26} font-size="14" fill="rgba(255,255,255,0.8)">
-					tan = {Number.isFinite(tanv) ? tanv.toFixed(3) : 'undefined'}
-				</text>
-			</svg>
+					<text x={pad} y={pad + 6} font-size="14" fill="rgba(255,255,255,0.9)">
+						(cos, sin) = ({cosv.toFixed(3)}, {sinv.toFixed(3)})
+					</text>
+					<text x={pad} y={pad + 26} font-size="14" fill="rgba(255,255,255,0.8)">
+						tan = {Number.isFinite(tanv) ? tanv.toFixed(3) : 'undefined'}
+					</text>
+				</svg>
+
+				<div class="hidden w-full lg:block lg:w-[40%]">
+					<div class="mb-2 text-xs uppercase tracking-[0.2em] text-slate-400">sin tail</div>
+					<svg viewBox={`0 0 ${tailW} ${tailH}`} class="h-auto w-full">
+						<rect x="1" y="1" width={tailW - 2} height={tailH - 2} rx="12" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+						<line x1={tailPad} y1={tailMid} x2={tailW - tailPad} y2={tailMid} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
+						<path d={tailPath} fill="none" stroke="rgb(16,185,129)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+						<circle
+							cx={tailW - tailPad}
+							cy={tailMid - sinv * tailAmp}
+							r="5"
+							fill="rgb(16,185,129)"
+						/>
+					</svg>
+				</div>
+			</div>
 		</div>
 
 		<div class="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 backdrop-blur">
@@ -272,6 +338,47 @@
 			<svg viewBox={`0 0 ${plotW} ${plotH}`} class="h-auto w-full">
 				<rect x="1" y="1" width={plotW - 2} height={plotH - 2} rx="12" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2" />
 				<line x1={pad} y1={midY} x2={plotW - pad} y2={midY} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
+				<line x1={pad} y1={pad} x2={pad} y2={plotH - pad} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
+
+				{#each plotXTicks as tick (tick.label)}
+					<line
+						x1={xFromPhase(tick.value)}
+						y1={plotH - pad}
+						x2={xFromPhase(tick.value)}
+						y2={plotH - pad + 6}
+						stroke="rgba(255,255,255,0.35)"
+						stroke-width="2"
+					/>
+					<text
+						x={xFromPhase(tick.value)}
+						y={plotH - 4}
+						font-size="12"
+						fill="rgba(255,255,255,0.6)"
+						text-anchor="middle"
+					>
+						{tick.label}
+					</text>
+				{/each}
+
+				{#each plotYTicks as tick (tick.label)}
+					<line
+						x1={pad - 6}
+						y1={yFromValue(tick.value)}
+						x2={pad}
+						y2={yFromValue(tick.value)}
+						stroke="rgba(255,255,255,0.35)"
+						stroke-width="2"
+					/>
+					<text
+						x={pad - 10}
+						y={yFromValue(tick.value) + 4}
+						font-size="12"
+						fill="rgba(255,255,255,0.6)"
+						text-anchor="end"
+					>
+						{tick.label}
+					</text>
+				{/each}
 				<line
 					x1={xFromPhase(phase)}
 					y1={pad}
@@ -292,8 +399,8 @@
 					<path d={tanPath} fill="none" stroke="rgb(245,158,11)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
 				{/if}
 
-				<text x={pad} y={plotH - 10} font-size="14" fill="rgba(255,255,255,0.7)">
-					x = theta (0 to 2pi)
+				<text x={pad} y={pad - 6} font-size="12" fill="rgba(255,255,255,0.55)">
+					y = sin/cos/tan(θ)
 				</text>
 			</svg>
 
