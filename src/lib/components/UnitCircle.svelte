@@ -40,8 +40,9 @@
 		tanDefined,
 		tanLineX,
 		tanIntersection,
-		showTanConstruction
-	}: UnitCircleProps = $props();
+		showTanConstruction,
+		svgEl = $bindable(null)
+	}: UnitCircleProps & { svgEl?: SVGSVGElement | null } = $props();
 </script>
 
 <div class="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 backdrop-blur">
@@ -56,6 +57,7 @@
 			class="h-auto w-full lg:w-[60%]"
 			role="img"
 			aria-label="Unit circle with sin, cos, and tan projections"
+			bind:this={svgEl}
 		>
 			<line x1="0" y1={cy} x2={circleSize} y2={cy} stroke="rgba(255,255,255,0.15)" stroke-width="2" />
 			<line x1={cx} y1="0" x2={cx} y2={circleSize} stroke="rgba(255,255,255,0.15)" stroke-width="2" />

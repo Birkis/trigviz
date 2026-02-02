@@ -50,8 +50,9 @@
 		xFromPhase,
 		yFromValue,
 		yFromTan,
-		tanAsymptotes
-	}: CurvesPlotProps = $props();
+		tanAsymptotes,
+		svgEl = $bindable(null)
+	}: CurvesPlotProps & { svgEl?: SVGSVGElement | null } = $props();
 </script>
 
 <div class="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 backdrop-blur">
@@ -60,7 +61,13 @@
 		<span class="text-xs text-slate-400">theta 0 to 2pi</span>
 	</div>
 
-	<svg viewBox={`0 0 ${plotW} ${plotH}`} class="h-auto w-full" role="img" aria-label="Sine cosine tangent curves">
+	<svg
+		viewBox={`0 0 ${plotW} ${plotH}`}
+		class="h-auto w-full"
+		role="img"
+		aria-label="Sine cosine tangent curves"
+		bind:this={svgEl}
+	>
 		<rect x="1" y="1" width={plotW - 2} height={plotH - 2} rx="12" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2" />
 		<line x1={pad} y1={midY} x2={plotW - pad} y2={midY} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
 		<line x1={pad} y1={pad} x2={pad} y2={plotH - pad} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
@@ -157,6 +164,17 @@
 		{/if}
 		{#if showTan}
 			<path d={tanPath} fill="none" stroke="rgb(245,158,11)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+		{/if}
+
+		{#if showSin}
+			<circle
+				cx={xFromPhase(phase)}
+				cy={yFromValue(sinv)}
+				r="5"
+				fill="rgb(16,185,129)"
+				stroke="rgba(255,255,255,0.3)"
+				stroke-width="2"
+			/>
 		{/if}
 
 		<text x={pad} y={pad - 6} font-size="12" fill="rgba(255,255,255,0.55)">

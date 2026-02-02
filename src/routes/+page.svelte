@@ -2,6 +2,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import ControlsPanel from '$lib/components/ControlsPanel.svelte';
 	import CurvesPlot from '$lib/components/CurvesPlot.svelte';
+	import SineTraceVertical from '$lib/components/SineTraceVertical.svelte';
 	import UnitCircle from '$lib/components/UnitCircle.svelte';
 	import { TAU, clamp, isNearAsymptote } from '$lib/math/trig';
 
@@ -23,8 +24,12 @@
 	const tailW = 240;
 	const tailH = circleSize;
 	const tailPad = 18;
-	const tailMax = 140;
+	const tailMax = 220;
 	const tanEpsilon = 0.02;
+
+	const verticalTraceW = 280;
+	const verticalTraceH = 560;
+	const verticalTracePad = 18;
 
 	let sinPath = $state('');
 	let cosPath = $state('');
@@ -46,11 +51,23 @@
 	const r = circleSize * 0.38;
 	const tanLineX = cx + r;
 
-	let tailBuffer = new Float32Array(tailMax);
+	let tailBuffer = $state(new Float32Array(tailMax));
 	let tailHead = $state(0);
 	let tailCount = $state(0);
 	let tailVersion = $state(0);
 	let lastSamplePhase = $state(0);
+
+	let isDesktop = $state(true);
+	let circleSvg = $state<SVGSVGElement | null>(null);
+	let curvesSvg = $state<SVGSVGElement | null>(null);
+	let verticalSvg = $state<SVGSVGElement | null>(null);
+	let overlaySvg = $state<SVGSVGElement | null>(null);
+	let overlayWidth = $state(0);
+	let overlayHeight = $state(0);
+	let visualizationEl: HTMLDivElement | null = null;
+	let verticalSinePoint = $state({ x: 0, y: 0 });
+	let connectorPath = $state('');
+	let connectorScheduled = false;
 
 	const sampleStep = TAU / (plotW - pad * 2);
 
@@ -73,6 +90,56 @@
 		tailHead = (tailHead + 1) % tailMax;
 		tailCount = Math.min(tailCount + 1, tailMax);
 		tailVersion += 1;
+	}
+
+	function scheduleConnectorUpdate() {
+		if (connectorScheduled) return;
+		connectorScheduled = true;
+		requestAnimationFrame(() => {
+			connectorScheduled = false;
+			updateConnector();
+		});
+	}
+
+	function toOverlayPoint(svg: SVGSVGElement | null, point: { x: number; y: number }) {
+		if (!svg || !overlaySvg) return null;
+		const matrix = svg.getScreenCTM();
+		if (!matrix) return null;
+		const svgPoint = svg.createSVGPoint();
+		svgPoint.x = point.x;
+		svgPoint.y = point.y;
+		const screen = svgPoint.matrixTransform(matrix);
+		const overlayRect = overlaySvg.getBoundingClientRect();
+		return { x: screen.x - overlayRect.left, y: screen.y - overlayRect.top };
+	}
+
+	function updateOverlaySize() {
+		if (!visualizationEl) return;
+		const rect = visualizationEl.getBoundingClientRect();
+		overlayWidth = rect.width;
+		overlayHeight = rect.height;
+	}
+
+	function updateConnector() {
+		if (!overlaySvg || !showSin) {
+			connectorPath = '';
+			return;
+		}
+
+		const startLocal = { x: cx + r * cosv, y: cy - r * sinv };
+		const endLocal = isDesktop
+			? { x: xFromPhase(phase), y: yFromValue(sinv) }
+			: verticalSinePoint;
+
+		const start = toOverlayPoint(circleSvg, startLocal);
+		const end = toOverlayPoint(isDesktop ? curvesSvg : verticalSvg, endLocal);
+
+		if (!start || !end) {
+			connectorPath = '';
+			return;
+		}
+
+		connectorPath = `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
 	}
 
 	function xFromPhase(p: number) {
@@ -171,6 +238,7 @@
 		lastSamplePhase = 0;
 		sampleAt(0);
 		sampleToPhase(targetPhase);
+		scheduleConnectorUpdate();
 	}
 
 	function setPhaseAndRebuild(value: number) {
@@ -186,6 +254,14 @@
 		tanClamp = nextClamp;
 		resetAndSample(phase);
 	}
+
+	$effect(() => {
+		tailVersion;
+		verticalSinePoint;
+		showSin;
+		isDesktop;
+		scheduleConnectorUpdate();
+	});
 
 	const tailPath = $derived.by(() => {
 		tailVersion;
@@ -215,6 +291,34 @@
 			running = false;
 		}
 
+		const media = window.matchMedia('(min-width: 1024px)');
+		const updateIsDesktop = () => {
+			isDesktop = media.matches;
+			scheduleConnectorUpdate();
+		};
+		updateIsDesktop();
+		media.addEventListener('change', updateIsDesktop);
+
+		const resizeObserver =
+			typeof ResizeObserver !== 'undefined'
+				? new ResizeObserver(() => {
+						updateOverlaySize();
+						scheduleConnectorUpdate();
+					})
+				: null;
+
+		if (visualizationEl && resizeObserver) {
+			resizeObserver.observe(visualizationEl);
+		}
+
+		const handleResize = () => {
+			updateOverlaySize();
+			scheduleConnectorUpdate();
+		};
+		const handleScroll = () => scheduleConnectorUpdate();
+		window.addEventListener('resize', handleResize);
+		window.addEventListener('scroll', handleScroll, true);
+
 		last = performance.now();
 
 		const tick = (now: number) => {
@@ -234,10 +338,27 @@
 				phase = nextPhase;
 				sampleToPhase(phase);
 			}
+
+			scheduleConnectorUpdate();
 		};
 
 		resetAndSample(phase);
 		raf = requestAnimationFrame(tick);
+
+		updateOverlaySize();
+		scheduleConnectorUpdate();
+
+		return () => {
+			if (typeof window !== 'undefined') {
+				cancelAnimationFrame(raf);
+				window.removeEventListener('resize', handleResize);
+				window.removeEventListener('scroll', handleScroll, true);
+				media.removeEventListener('change', updateIsDesktop);
+				if (resizeObserver && visualizationEl) {
+					resizeObserver.unobserve(visualizationEl);
+				}
+			}
+		};
 	});
 
 	onDestroy(() => {
@@ -321,51 +442,90 @@
 		onToggleTanConstruction={() => (showTanConstruction = !showTanConstruction)}
 	/>
 
-	<section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-		<UnitCircle
-			{circleSize}
-			{cx}
-			{cy}
-			{r}
-			{pad}
-			{tailW}
-			{tailH}
-			{tailPad}
-			{tailMid}
-			{tailAmp}
-			{tailPath}
-			{sinv}
-			{cosv}
-			{tanv}
-			{tanDefined}
-			{tanLineX}
-			tanIntersection={tanIntersection}
-			{showTanConstruction}
-		/>
-		<CurvesPlot
-			{plotW}
-			{plotH}
-			{pad}
-			{midY}
-			{plotXTicks}
-			{plotYTicks}
-			{tanTicks}
-			{phase}
-			{sinPath}
-			{cosPath}
-			{tanPath}
-			{showSin}
-			{showCos}
-			{showTan}
-			{tanClamp}
-			{sinv}
-			{cosv}
-			{tanv}
-			{tanDefined}
-			xFromPhase={xFromPhase}
-			yFromValue={yFromValue}
-			yFromTan={yFromTan}
-			tanAsymptotes={[TAU / 4, (TAU * 3) / 4]}
-		/>
-	</section>
+	<div class="relative" bind:this={visualizationEl}>
+		<section class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+			<UnitCircle
+				{circleSize}
+				{cx}
+				{cy}
+				{r}
+				{pad}
+				{tailW}
+				{tailH}
+				{tailPad}
+				{tailMid}
+				{tailAmp}
+				{tailPath}
+				{sinv}
+				{cosv}
+				{tanv}
+				{tanDefined}
+				{tanLineX}
+				tanIntersection={tanIntersection}
+				{showTanConstruction}
+				bind:svgEl={circleSvg}
+			/>
+
+			{#if isDesktop}
+				<CurvesPlot
+					{plotW}
+					{plotH}
+					{pad}
+					{midY}
+					{plotXTicks}
+					{plotYTicks}
+					{tanTicks}
+					{phase}
+					{sinPath}
+					{cosPath}
+					{tanPath}
+					{showSin}
+					{showCos}
+					{showTan}
+					{tanClamp}
+					{sinv}
+					{cosv}
+					{tanv}
+					{tanDefined}
+					xFromPhase={xFromPhase}
+					yFromValue={yFromValue}
+					yFromTan={yFromTan}
+					tanAsymptotes={[TAU / 4, (TAU * 3) / 4]}
+					bind:svgEl={curvesSvg}
+				/>
+			{:else}
+				<SineTraceVertical
+					width={verticalTraceW}
+					height={verticalTraceH}
+					pad={verticalTracePad}
+					{tailBuffer}
+					{tailHead}
+					{tailCount}
+					tailMax={tailMax}
+					bind:svgEl={verticalSvg}
+					bind:currentPoint={verticalSinePoint}
+				/>
+			{/if}
+		</section>
+
+		<svg
+			class="pointer-events-none absolute inset-0"
+			width={overlayWidth}
+			height={overlayHeight}
+			viewBox={`0 0 ${overlayWidth} ${overlayHeight}`}
+			aria-hidden="true"
+			bind:this={overlaySvg}
+		>
+			{#if connectorPath && overlayWidth > 0 && overlayHeight > 0}
+				<path
+					d={connectorPath}
+					fill="none"
+					stroke="rgba(255,255,255,0.5)"
+					stroke-width="2"
+					stroke-dasharray="6 6"
+					stroke-linecap="round"
+				/>
+			{/if}
+		</svg>
+	</div>
 </div>
