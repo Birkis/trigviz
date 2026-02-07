@@ -6,6 +6,7 @@
 		plotH: number;
 		pad: number;
 		midY: number;
+		tau: number;
 		plotXTicks: Tick[];
 		plotYTicks: Tick[];
 		tanTicks: Tick[];
@@ -32,6 +33,7 @@
 		plotH,
 		pad,
 		midY,
+		tau,
 		plotXTicks,
 		plotYTicks,
 		tanTicks,
@@ -69,6 +71,14 @@
 		bind:this={svgEl}
 	>
 		<rect x="1" y="1" width={plotW - 2} height={plotH - 2} rx="12" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2" />
+		<rect x={xFromPhase(0)} y={pad} width={xFromPhase(tau / 4) - xFromPhase(0)} height={plotH - pad * 2} fill="rgba(255,255,255,0.02)" />
+		<rect x={xFromPhase(tau / 4)} y={pad} width={xFromPhase(tau / 2) - xFromPhase(tau / 4)} height={plotH - pad * 2} fill="rgba(255,255,255,0.04)" />
+		<rect x={xFromPhase(tau / 2)} y={pad} width={xFromPhase((tau * 3) / 4) - xFromPhase(tau / 2)} height={plotH - pad * 2} fill="rgba(255,255,255,0.02)" />
+		<rect x={xFromPhase((tau * 3) / 4)} y={pad} width={xFromPhase(tau) - xFromPhase((tau * 3) / 4)} height={plotH - pad * 2} fill="rgba(255,255,255,0.04)" />
+		<text x={xFromPhase(tau / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q1</text>
+		<text x={xFromPhase((tau * 3) / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q2</text>
+		<text x={xFromPhase((tau * 5) / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q3</text>
+		<text x={xFromPhase((tau * 7) / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q4</text>
 		<line x1={pad} y1={midY} x2={plotW - pad} y2={midY} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
 		<line x1={pad} y1={pad} x2={pad} y2={plotH - pad} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
 
@@ -176,6 +186,26 @@
 				stroke-width="2"
 			/>
 		{/if}
+		{#if showCos}
+			<circle
+				cx={xFromPhase(phase)}
+				cy={yFromValue(cosv)}
+				r="5"
+				fill="rgb(59,130,246)"
+				stroke="rgba(255,255,255,0.3)"
+				stroke-width="2"
+			/>
+		{/if}
+		{#if showTan && tanDefined && Math.abs(tanv) <= tanClamp}
+			<circle
+				cx={xFromPhase(phase)}
+				cy={yFromTan(tanv)}
+				r="5"
+				fill="rgb(245,158,11)"
+				stroke="rgba(255,255,255,0.3)"
+				stroke-width="2"
+			/>
+		{/if}
 
 		<text x={pad} y={pad - 6} font-size="12" fill="rgba(255,255,255,0.55)">
 			y = sin/cos/tan(θ)
@@ -186,6 +216,27 @@
 			</text>
 		{/if}
 	</svg>
+
+	<div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+		{#if showSin}
+			<span class="flex items-center gap-1.5">
+				<span class="h-0.5 w-6 rounded-full bg-emerald-400"></span>
+				sin(θ)
+			</span>
+		{/if}
+		{#if showCos}
+			<span class="flex items-center gap-1.5">
+				<span class="h-0.5 w-6 rounded-full bg-sky-400"></span>
+				cos(θ)
+			</span>
+		{/if}
+		{#if showTan}
+			<span class="flex items-center gap-1.5">
+				<span class="h-0.5 w-6 rounded-full bg-amber-400"></span>
+				tan(θ)
+			</span>
+		{/if}
+	</div>
 
 	<div class="mt-4 grid grid-cols-1 gap-3 text-sm text-white/90 sm:grid-cols-3">
 		<div class="rounded-xl bg-emerald-500/10 px-3 py-2 text-emerald-100">

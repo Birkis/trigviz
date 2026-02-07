@@ -449,6 +449,7 @@
 				{cx}
 				{cy}
 				{r}
+				{phase}
 				{pad}
 				{tailW}
 				{tailH}
@@ -472,6 +473,7 @@
 					{plotH}
 					{pad}
 					{midY}
+					tau={TAU}
 					{plotXTicks}
 					{plotYTicks}
 					{tanTicks}
@@ -516,14 +518,24 @@
 			aria-hidden="true"
 			bind:this={overlaySvg}
 		>
+			<defs>
+				<filter id="connectorGlow">
+					<feGaussianBlur stdDeviation="2" result="blur" />
+					<feMerge>
+						<feMergeNode in="blur" />
+						<feMergeNode in="SourceGraphic" />
+					</feMerge>
+				</filter>
+			</defs>
 			{#if connectorPath && overlayWidth > 0 && overlayHeight > 0}
 				<path
 					d={connectorPath}
 					fill="none"
-					stroke="rgba(255,255,255,0.5)"
-					stroke-width="2"
+					stroke="rgba(16,185,129,0.7)"
+					stroke-width="2.5"
 					stroke-dasharray="6 6"
 					stroke-linecap="round"
+					filter="url(#connectorGlow)"
 				/>
 			{/if}
 		</svg>
