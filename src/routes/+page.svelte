@@ -139,7 +139,13 @@
 			return;
 		}
 
-		connectorPath = `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${end.y.toFixed(1)}`;
+		if (isDesktop) {
+			// Horizontal line: lock Y to the start (unit circle) point
+			connectorPath = `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${end.x.toFixed(1)} ${start.y.toFixed(1)}`;
+		} else {
+			// Vertical line: lock X to the start (unit circle) point
+			connectorPath = `M ${start.x.toFixed(1)} ${start.y.toFixed(1)} L ${start.x.toFixed(1)} ${end.y.toFixed(1)}`;
+		}
 	}
 
 	function xFromPhase(p: number) {
