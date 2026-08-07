@@ -14,11 +14,11 @@
 		onReset: () => void;
 		onSpeedChange: (value: number) => void;
 		onPhaseChange: (value: number) => void;
-		onToggleShowSin: () => void;
-		onToggleShowCos: () => void;
-		onToggleShowTan: () => void;
+		onShowSinChange: (value: boolean) => void;
+		onShowCosChange: (value: boolean) => void;
+		onShowTanChange: (value: boolean) => void;
 		onTanClampChange: (value: number) => void;
-		onToggleTanConstruction: () => void;
+		onTanConstructionChange: (value: boolean) => void;
 	};
 
 	let {
@@ -36,27 +36,35 @@
 		onReset,
 		onSpeedChange,
 		onPhaseChange,
-		onToggleShowSin,
-		onToggleShowCos,
-		onToggleShowTan,
+		onShowSinChange,
+		onShowCosChange,
+		onShowTanChange,
 		onTanClampChange,
-		onToggleTanConstruction
+		onTanConstructionChange
 	}: ControlsProps = $props();
 
+	function readNumber(event: Event) {
+		const value = Number((event.currentTarget as HTMLInputElement).value);
+		return Number.isFinite(value) ? value : null;
+	}
+
 	function handleSpeedInput(event: Event) {
-		onSpeedChange(Number((event.currentTarget as HTMLInputElement).value));
+		const value = readNumber(event);
+		if (value !== null) onSpeedChange(value);
 	}
 
 	function handlePhaseInput(event: Event) {
-		onPhaseChange(Number((event.currentTarget as HTMLInputElement).value));
+		const value = readNumber(event);
+		if (value !== null) onPhaseChange(value);
 	}
 
 	function handleTanClampInput(event: Event) {
-		onTanClampChange(Number((event.currentTarget as HTMLInputElement).value));
+		const value = readNumber(event);
+		if (value !== null) onTanClampChange(value);
 	}
 </script>
 
-<section class="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-xl shadow-black/30 backdrop-blur">
+<section class="viz-panel">
 	<div class="flex flex-wrap items-center gap-3">
 		<button
 			type="button"
@@ -85,7 +93,7 @@
 				value={speed}
 				oninput={handleSpeedInput}
 			/>
-			<span class="tabular-nums text-white/80">{speed.toFixed(2)} rad/s</span>
+			<span class="text-white/80 tabular-nums">{speed.toFixed(2)} rad/s</span>
 		</label>
 
 		<div class="ml-auto flex flex-wrap items-center gap-2 text-sm text-slate-300">
@@ -96,19 +104,40 @@
 
 	<div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-200">
 		<label class="flex items-center gap-2">
-			<input class="accent-emerald-400" type="checkbox" checked={showSin} onclick={onToggleShowSin} />
+			<input
+				class="accent-emerald-400"
+				type="checkbox"
+				checked={showSin}
+				onchange={(event) => onShowSinChange((event.currentTarget as HTMLInputElement).checked)}
+			/>
 			<span class="text-emerald-200">sin</span>
 		</label>
 		<label class="flex items-center gap-2">
-			<input class="accent-sky-400" type="checkbox" checked={showCos} onclick={onToggleShowCos} />
+			<input
+				class="accent-sky-400"
+				type="checkbox"
+				checked={showCos}
+				onchange={(event) => onShowCosChange((event.currentTarget as HTMLInputElement).checked)}
+			/>
 			<span class="text-sky-200">cos</span>
 		</label>
 		<label class="flex items-center gap-2">
-			<input class="accent-amber-400" type="checkbox" checked={showTan} onclick={onToggleShowTan} />
+			<input
+				class="accent-amber-400"
+				type="checkbox"
+				checked={showTan}
+				onchange={(event) => onShowTanChange((event.currentTarget as HTMLInputElement).checked)}
+			/>
 			<span class="text-amber-200">tan (scaled)</span>
 		</label>
 		<label class="flex items-center gap-2">
-			<input class="accent-amber-400" type="checkbox" checked={showTanConstruction} onclick={onToggleTanConstruction} />
+			<input
+				class="accent-amber-400"
+				type="checkbox"
+				checked={showTanConstruction}
+				onchange={(event) =>
+					onTanConstructionChange((event.currentTarget as HTMLInputElement).checked)}
+			/>
 			<span class="text-amber-200">tan construction</span>
 		</label>
 	</div>
@@ -125,7 +154,7 @@
 				value={tanClamp}
 				oninput={handleTanClampInput}
 			/>
-			<span class="tabular-nums text-white/80">{tanClamp.toFixed(1)}</span>
+			<span class="text-white/80 tabular-nums">{tanClamp.toFixed(1)}</span>
 		</label>
 
 		<label class="flex items-center gap-2">
@@ -143,6 +172,7 @@
 	</div>
 
 	<p class="mt-3 text-xs text-slate-400">
-		Keyboard: Space to pause/run, arrows to scrub θ (hold Shift for larger steps).
+		Keyboard: Space to pause/run, arrows to scrub θ (hold Shift for larger steps). Scrubbing
+		auto-pauses.
 	</p>
 </section>

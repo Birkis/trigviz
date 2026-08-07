@@ -1,15 +1,13 @@
 <script lang="ts">
-	type Tick = { label: string; value: number };
+	import { TAU } from '$lib/math/trig';
+	import {
+		PLOT_X_TICKS,
+		PLOT_Y_TICKS,
+		TAN_ASYMPTOTES,
+		createPlotGeometry
+	} from '$lib/sim/plotGeometry';
 
-	type CurvesPlotProps = {
-		plotW: number;
-		plotH: number;
-		pad: number;
-		midY: number;
-		tau: number;
-		plotXTicks: Tick[];
-		plotYTicks: Tick[];
-		tanTicks: Tick[];
+	type Props = {
 		phase: number;
 		sinPath: string;
 		cosPath: string;
@@ -20,23 +18,14 @@
 		tanClamp: number;
 		sinv: number;
 		cosv: number;
-		tanv: number;
-		tanDefined: boolean;
-		xFromPhase: (value: number) => number;
-		yFromValue: (value: number) => number;
-		yFromTan: (value: number) => number;
-		tanAsymptotes: number[];
+		tanv: number | null;
+		plotW?: number;
+		plotH?: number;
+		pad?: number;
+		svgEl?: SVGSVGElement | null;
 	};
 
 	let {
-		plotW,
-		plotH,
-		pad,
-		midY,
-		tau,
-		plotXTicks,
-		plotYTicks,
-		tanTicks,
 		phase,
 		sinPath,
 		cosPath,
@@ -48,18 +37,28 @@
 		sinv,
 		cosv,
 		tanv,
-		tanDefined,
-		xFromPhase,
-		yFromValue,
-		yFromTan,
-		tanAsymptotes,
-		svgEl = $bindable(null)
-	}: CurvesPlotProps & { svgEl?: SVGSVGElement | null } = $props();
+		plotW = 560,
+		plotH = 380,
+		pad = 18,
+		svgEl = $bindable<SVGSVGElement | null>(null)
+	}: Props = $props();
+
+	const geometry = $derived(createPlotGeometry(plotW, plotH, pad));
+	const { midY, xFromPhase, yFromValue, yFromTan } = $derived(geometry);
+
+	const tanTicks = $derived(
+		showTan
+			? [
+					{ label: `+${tanClamp.toFixed(1)}`, value: tanClamp },
+					{ label: `-${tanClamp.toFixed(1)}`, value: -tanClamp }
+				]
+			: []
+	);
 </script>
 
-<div class="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/30 backdrop-blur">
+<div class="viz-panel">
 	<div class="mb-4 flex items-center justify-between text-sm text-slate-200">
-		<span class="font-semibold uppercase tracking-[0.2em]">Curves</span>
+		<span class="font-semibold tracking-[0.2em] uppercase">Curves</span>
 		<span class="text-xs text-slate-400">theta 0 to 2pi</span>
 	</div>
 
@@ -70,19 +69,93 @@
 		aria-label="Sine cosine tangent curves"
 		bind:this={svgEl}
 	>
-		<rect x="1" y="1" width={plotW - 2} height={plotH - 2} rx="12" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2" />
-		<rect x={xFromPhase(0)} y={pad} width={xFromPhase(tau / 4) - xFromPhase(0)} height={plotH - pad * 2} fill="rgba(255,255,255,0.02)" />
-		<rect x={xFromPhase(tau / 4)} y={pad} width={xFromPhase(tau / 2) - xFromPhase(tau / 4)} height={plotH - pad * 2} fill="rgba(255,255,255,0.04)" />
-		<rect x={xFromPhase(tau / 2)} y={pad} width={xFromPhase((tau * 3) / 4) - xFromPhase(tau / 2)} height={plotH - pad * 2} fill="rgba(255,255,255,0.02)" />
-		<rect x={xFromPhase((tau * 3) / 4)} y={pad} width={xFromPhase(tau) - xFromPhase((tau * 3) / 4)} height={plotH - pad * 2} fill="rgba(255,255,255,0.04)" />
-		<text x={xFromPhase(tau / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q1</text>
-		<text x={xFromPhase((tau * 3) / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q2</text>
-		<text x={xFromPhase((tau * 5) / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q3</text>
-		<text x={xFromPhase((tau * 7) / 8)} y={pad - 6} font-size="11" fill="rgba(255,255,255,0.2)" text-anchor="middle">Q4</text>
-		<line x1={pad} y1={midY} x2={plotW - pad} y2={midY} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
-		<line x1={pad} y1={pad} x2={pad} y2={plotH - pad} stroke="rgba(255,255,255,0.14)" stroke-width="2" />
+		<title>Trigonometric curves</title>
+		<desc>Sine, cosine, and tangent plotted from 0 to 2π for the current animation.</desc>
 
-		{#each plotXTicks as tick (tick.label)}
+		<rect
+			x="1"
+			y="1"
+			width={plotW - 2}
+			height={plotH - 2}
+			rx="12"
+			fill="none"
+			stroke="rgba(255,255,255,0.12)"
+			stroke-width="2"
+		/>
+		<rect
+			x={xFromPhase(0)}
+			y={pad}
+			width={xFromPhase(TAU / 4) - xFromPhase(0)}
+			height={plotH - pad * 2}
+			fill="rgba(255,255,255,0.02)"
+		/>
+		<rect
+			x={xFromPhase(TAU / 4)}
+			y={pad}
+			width={xFromPhase(TAU / 2) - xFromPhase(TAU / 4)}
+			height={plotH - pad * 2}
+			fill="rgba(255,255,255,0.04)"
+		/>
+		<rect
+			x={xFromPhase(TAU / 2)}
+			y={pad}
+			width={xFromPhase((TAU * 3) / 4) - xFromPhase(TAU / 2)}
+			height={plotH - pad * 2}
+			fill="rgba(255,255,255,0.02)"
+		/>
+		<rect
+			x={xFromPhase((TAU * 3) / 4)}
+			y={pad}
+			width={xFromPhase(TAU) - xFromPhase((TAU * 3) / 4)}
+			height={plotH - pad * 2}
+			fill="rgba(255,255,255,0.04)"
+		/>
+		<text
+			x={xFromPhase(TAU / 8)}
+			y={pad - 6}
+			font-size="11"
+			fill="rgba(255,255,255,0.2)"
+			text-anchor="middle">Q1</text
+		>
+		<text
+			x={xFromPhase((TAU * 3) / 8)}
+			y={pad - 6}
+			font-size="11"
+			fill="rgba(255,255,255,0.2)"
+			text-anchor="middle">Q2</text
+		>
+		<text
+			x={xFromPhase((TAU * 5) / 8)}
+			y={pad - 6}
+			font-size="11"
+			fill="rgba(255,255,255,0.2)"
+			text-anchor="middle">Q3</text
+		>
+		<text
+			x={xFromPhase((TAU * 7) / 8)}
+			y={pad - 6}
+			font-size="11"
+			fill="rgba(255,255,255,0.2)"
+			text-anchor="middle">Q4</text
+		>
+		<line
+			x1={pad}
+			y1={midY}
+			x2={plotW - pad}
+			y2={midY}
+			stroke="rgba(255,255,255,0.14)"
+			stroke-width="2"
+		/>
+		<line
+			x1={pad}
+			y1={pad}
+			x2={pad}
+			y2={plotH - pad}
+			stroke="rgba(255,255,255,0.14)"
+			stroke-width="2"
+		/>
+
+		{#each PLOT_X_TICKS as tick (tick.label)}
 			<line
 				x1={xFromPhase(tick.value)}
 				y1={plotH - pad}
@@ -102,7 +175,7 @@
 			</text>
 		{/each}
 
-		{#each plotYTicks as tick (tick.label)}
+		{#each PLOT_Y_TICKS as tick (tick.label)}
 			<line
 				x1={pad - 6}
 				y1={yFromValue(tick.value)}
@@ -123,13 +196,14 @@
 		{/each}
 
 		{#if showTan}
-			{#each tanAsymptotes as asymptote (asymptote)}
+			{#each TAN_ASYMPTOTES as asymptote (asymptote)}
 				<line
 					x1={xFromPhase(asymptote)}
 					y1={pad}
 					x2={xFromPhase(asymptote)}
 					y2={plotH - pad}
-					stroke="rgba(245,158,11,0.35)"
+					stroke="var(--color-tan)"
+					stroke-opacity="0.35"
 					stroke-width="2"
 					stroke-dasharray="6 6"
 				/>
@@ -138,17 +212,19 @@
 			{#each tanTicks as tick (tick.label)}
 				<line
 					x1={plotW - pad}
-					y1={yFromTan(tick.value)}
+					y1={yFromTan(tick.value, tanClamp)}
 					x2={plotW - pad + 6}
-					y2={yFromTan(tick.value)}
-					stroke="rgba(245,158,11,0.6)"
+					y2={yFromTan(tick.value, tanClamp)}
+					stroke="var(--color-tan)"
+					stroke-opacity="0.6"
 					stroke-width="2"
 				/>
 				<text
 					x={plotW - pad + 10}
-					y={yFromTan(tick.value) + 4}
+					y={yFromTan(tick.value, tanClamp) + 4}
 					font-size="12"
-					fill="rgba(245,158,11,0.7)"
+					fill="var(--color-tan)"
+					fill-opacity="0.7"
 					text-anchor="start"
 				>
 					{tick.label}
@@ -167,13 +243,34 @@
 		/>
 
 		{#if showSin}
-			<path d={sinPath} fill="none" stroke="rgb(16,185,129)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+			<path
+				d={sinPath}
+				fill="none"
+				stroke="var(--color-sin)"
+				stroke-width="3"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
 		{/if}
 		{#if showCos}
-			<path d={cosPath} fill="none" stroke="rgb(59,130,246)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+			<path
+				d={cosPath}
+				fill="none"
+				stroke="var(--color-cos)"
+				stroke-width="3"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
 		{/if}
 		{#if showTan}
-			<path d={tanPath} fill="none" stroke="rgb(245,158,11)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+			<path
+				d={tanPath}
+				fill="none"
+				stroke="var(--color-tan)"
+				stroke-width="3"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			/>
 		{/if}
 
 		{#if showSin}
@@ -181,7 +278,7 @@
 				cx={xFromPhase(phase)}
 				cy={yFromValue(sinv)}
 				r="5"
-				fill="rgb(16,185,129)"
+				fill="var(--color-sin)"
 				stroke="rgba(255,255,255,0.3)"
 				stroke-width="2"
 			/>
@@ -191,27 +288,32 @@
 				cx={xFromPhase(phase)}
 				cy={yFromValue(cosv)}
 				r="5"
-				fill="rgb(59,130,246)"
+				fill="var(--color-cos)"
 				stroke="rgba(255,255,255,0.3)"
 				stroke-width="2"
 			/>
 		{/if}
-		{#if showTan && tanDefined && Math.abs(tanv) <= tanClamp}
+		{#if showTan && tanv !== null}
 			<circle
 				cx={xFromPhase(phase)}
-				cy={yFromTan(tanv)}
+				cy={yFromTan(tanv, tanClamp)}
 				r="5"
-				fill="rgb(245,158,11)"
+				fill="var(--color-tan)"
 				stroke="rgba(255,255,255,0.3)"
 				stroke-width="2"
 			/>
 		{/if}
 
-		<text x={pad} y={pad - 6} font-size="12" fill="rgba(255,255,255,0.55)">
-			y = sin/cos/tan(θ)
-		</text>
+		<text x={pad} y={pad - 6} font-size="12" fill="rgba(255,255,255,0.55)">y = sin/cos/tan(θ)</text>
 		{#if showTan}
-			<text x={plotW - pad} y={pad - 6} font-size="12" fill="rgba(245,158,11,0.7)" text-anchor="end">
+			<text
+				x={plotW - pad}
+				y={pad - 6}
+				font-size="12"
+				fill="var(--color-tan)"
+				fill-opacity="0.7"
+				text-anchor="end"
+			>
 				tan scaled to ±{tanClamp.toFixed(1)}
 			</text>
 		{/if}
@@ -220,19 +322,19 @@
 	<div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
 		{#if showSin}
 			<span class="flex items-center gap-1.5">
-				<span class="h-0.5 w-6 rounded-full bg-emerald-400"></span>
+				<span class="h-0.5 w-6 rounded-full bg-[var(--color-sin)]"></span>
 				sin(θ)
 			</span>
 		{/if}
 		{#if showCos}
 			<span class="flex items-center gap-1.5">
-				<span class="h-0.5 w-6 rounded-full bg-sky-400"></span>
+				<span class="h-0.5 w-6 rounded-full bg-[var(--color-cos)]"></span>
 				cos(θ)
 			</span>
 		{/if}
 		{#if showTan}
 			<span class="flex items-center gap-1.5">
-				<span class="h-0.5 w-6 rounded-full bg-amber-400"></span>
+				<span class="h-0.5 w-6 rounded-full bg-[var(--color-tan)]"></span>
 				tan(θ)
 			</span>
 		{/if}
@@ -246,7 +348,7 @@
 			cos: <span class="tabular-nums">{cosv.toFixed(4)}</span>
 		</div>
 		<div class="rounded-xl bg-amber-500/10 px-3 py-2 text-amber-100">
-			tan: <span class="tabular-nums">{tanDefined ? tanv.toFixed(4) : 'undefined'}</span>
+			tan: <span class="tabular-nums">{tanv === null ? 'undefined' : tanv.toFixed(4)}</span>
 		</div>
 	</div>
 </div>
