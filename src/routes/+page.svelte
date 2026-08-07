@@ -3,6 +3,7 @@
 	import ConnectorOverlay from '$lib/components/ConnectorOverlay.svelte';
 	import ControlsPanel from '$lib/components/ControlsPanel.svelte';
 	import CurvesPlot from '$lib/components/CurvesPlot.svelte';
+	import TeachingPanel from '$lib/components/TeachingPanel.svelte';
 	import UnitCircle from '$lib/components/UnitCircle.svelte';
 	import { TAU } from '$lib/math/trig';
 	import { Visualizer } from '$lib/sim/visualizer.svelte';
@@ -24,6 +25,7 @@
 			case ' ':
 				event.preventDefault();
 				viz.running = !viz.running;
+				viz.queueUrlSync();
 				break;
 			case 'ArrowLeft':
 				event.preventDefault();
@@ -48,8 +50,8 @@
 			Watch the unit circle draw sin, cos, and tan
 		</h1>
 		<p class="max-w-2xl text-sm text-slate-200/80">
-			A rotating radius on the unit circle drives the waveforms. Pause, scrub theta, and explore how
-			the projections map into the curves — on any screen size.
+			Scrub by dragging, jump to classic angles, switch degrees/radians, and share a link to the
+			exact frame you're looking at.
 		</p>
 	</header>
 
@@ -68,10 +70,16 @@
 		showTan={viz.showTan}
 		tanClamp={viz.tanClamp}
 		showTanConstruction={viz.showTanConstruction}
-		tau={TAU}
-		onToggleRunning={() => (viz.running = !viz.running)}
+		unit={viz.unit}
+		onToggleRunning={() => {
+			viz.running = !viz.running;
+			viz.queueUrlSync();
+		}}
 		onReset={() => viz.reset()}
-		onSpeedChange={(value) => (viz.speed = value)}
+		onSpeedChange={(value) => {
+			viz.speed = value;
+			viz.queueUrlSync();
+		}}
 		onPhaseChange={(value) => viz.setPhaseAndRebuild(value, { pause: true })}
 		onShowSinChange={(value) => viz.updateFlagsAndRebuild(() => (viz.showSin = value))}
 		onShowCosChange={(value) => viz.updateFlagsAndRebuild(() => (viz.showCos = value))}
@@ -79,8 +87,27 @@
 		onTanClampChange={(value) => {
 			viz.tanClamp = value;
 			viz.rebuildFromPhase(viz.phase);
+			viz.queueUrlSync();
 		}}
-		onTanConstructionChange={(value) => (viz.showTanConstruction = value)}
+		onTanConstructionChange={(value) => {
+			viz.showTanConstruction = value;
+			viz.queueUrlSync();
+		}}
+		onUnitChange={(value) => {
+			viz.unit = value;
+			viz.queueUrlSync();
+		}}
+		onCopyLink={() => {
+			void viz.copyShareLink();
+		}}
+	/>
+
+	<TeachingPanel
+		phase={viz.phase}
+		sinv={viz.sinv}
+		cosv={viz.cosv}
+		tanv={viz.tanv}
+		unit={viz.unit}
 	/>
 
 	<div class="relative" bind:this={viz.visualizationEl}>
@@ -92,7 +119,9 @@
 				tanv={viz.tanv}
 				tailPath={viz.tailPath}
 				showTanConstruction={viz.showTanConstruction}
+				unit={viz.unit}
 				bind:svgEl={viz.circleSvg}
+				onPhaseScrub={(value) => viz.setPhaseAndRebuild(value, { pause: true })}
 			/>
 
 			<CurvesPlot
@@ -108,6 +137,7 @@
 				cosv={viz.cosv}
 				tanv={viz.tanv}
 				bind:svgEl={viz.curvesSvg}
+				onPhaseScrub={(value) => viz.setPhaseAndRebuild(value, { pause: true })}
 			/>
 		</section>
 

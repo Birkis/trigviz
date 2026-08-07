@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { TAU } from '$lib/math/trig';
+	import { phaseFromPlotPointer } from '$lib/sim/pointerScrub';
 	import {
 		PLOT_X_TICKS,
 		PLOT_Y_TICKS,
@@ -23,6 +24,7 @@
 		plotH?: number;
 		pad?: number;
 		svgEl?: SVGSVGElement | null;
+		onPhaseScrub?: (phase: number) => void;
 	};
 
 	let {
@@ -40,11 +42,14 @@
 		plotW = 560,
 		plotH = 380,
 		pad = 18,
-		svgEl = $bindable<SVGSVGElement | null>(null)
+		svgEl = $bindable<SVGSVGElement | null>(null),
+		onPhaseScrub
 	}: Props = $props();
 
 	const geometry = $derived(createPlotGeometry(plotW, plotH, pad));
 	const { midY, xFromPhase, yFromValue, yFromTan } = $derived(geometry);
+
+	let dragging = $state(false);
 
 	const tanTicks = $derived(
 		showTan
@@ -54,20 +59,50 @@
 				]
 			: []
 	);
+
+	function scrubFromEvent(event: PointerEvent) {
+		if (!svgEl || !onPhaseScrub) return;
+		const next = phaseFromPlotPointer(svgEl, event.clientX, event.clientY, plotW, pad);
+		if (next !== null) onPhaseScrub(next);
+	}
+
+	function handlePointerDown(event: PointerEvent) {
+		if (!onPhaseScrub || !svgEl) return;
+		dragging = true;
+		svgEl.setPointerCapture(event.pointerId);
+		scrubFromEvent(event);
+	}
+
+	function handlePointerMove(event: PointerEvent) {
+		if (!dragging) return;
+		scrubFromEvent(event);
+	}
+
+	function handlePointerUp(event: PointerEvent) {
+		if (!svgEl) return;
+		dragging = false;
+		if (svgEl.hasPointerCapture(event.pointerId)) {
+			svgEl.releasePointerCapture(event.pointerId);
+		}
+	}
 </script>
 
 <div class="viz-panel">
 	<div class="mb-4 flex items-center justify-between text-sm text-slate-200">
 		<span class="font-semibold tracking-[0.2em] uppercase">Curves</span>
-		<span class="text-xs text-slate-400">theta 0 to 2pi</span>
+		<span class="text-xs text-slate-400">drag to scrub theta</span>
 	</div>
 
 	<svg
 		viewBox={`0 0 ${plotW} ${plotH}`}
-		class="h-auto w-full"
+		class="h-auto w-full touch-none {onPhaseScrub ? 'cursor-ew-resize' : ''}"
 		role="img"
-		aria-label="Sine cosine tangent curves"
+		aria-label="Sine cosine tangent curves. Drag to scrub theta."
 		bind:this={svgEl}
+		onpointerdown={handlePointerDown}
+		onpointermove={handlePointerMove}
+		onpointerup={handlePointerUp}
+		onpointercancel={handlePointerUp}
 	>
 		<title>Trigonometric curves</title>
 		<desc>Sine, cosine, and tangent plotted from 0 to 2π for the current animation.</desc>
@@ -237,9 +272,18 @@
 			y1={pad}
 			x2={xFromPhase(phase)}
 			y2={plotH - pad}
-			stroke="rgba(255,255,255,0.25)"
-			stroke-width="2"
+			stroke="rgba(255,255,255,0.45)"
+			stroke-width="3"
 			stroke-dasharray="6 6"
+		/>
+		<!-- Wider invisible hit target for the phase scrubber -->
+		<line
+			x1={xFromPhase(phase)}
+			y1={pad}
+			x2={xFromPhase(phase)}
+			y2={plotH - pad}
+			stroke="transparent"
+			stroke-width="24"
 		/>
 
 		{#if showSin}

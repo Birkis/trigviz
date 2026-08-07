@@ -1,3 +1,4 @@
+import type { AngleUnit } from '$lib/math/angles';
 import { DEFAULT_TAN_EPSILON, safeTan } from '$lib/math/trig';
 import { advancePhase, createRafLoop, createScheduledFrame, scrubPhase } from '$lib/sim/animation';
 import { horizontalConnectorPath, toOverlayPoint } from '$lib/sim/connector';
@@ -14,12 +15,20 @@ import {
 	createTailGeometry
 } from '$lib/sim/plotGeometry';
 import { buildRingPath } from '$lib/sim/ringBuffer';
+import {
+	DEFAULT_VIZ_URL_STATE,
+	parseVizSearchParams,
+	replaceUrlSearch,
+	serializeVizSearchParams,
+	type VizUrlState
+} from '$lib/sim/urlState';
 
 export class Visualizer {
 	running = $state(true);
 	speed = $state(1.6);
 	phase = $state(0);
 	turns = $state(0);
+	unit = $state<AngleUnit>('rad');
 
 	showSin = $state(true);
 	showCos = $state(true);
@@ -51,6 +60,8 @@ export class Visualizer {
 	#sampler = createCurveSampler(this.tailGeometry.tailMax);
 	#rafLoop = createRafLoop();
 	#connectorFrame = createScheduledFrame();
+	#urlTimer = 0;
+	#suppressUrl = false;
 
 	flags(): SamplerFlags {
 		return {
@@ -88,11 +99,13 @@ export class Visualizer {
 		if (pause) this.running = false;
 		this.phase = scrubPhase(value);
 		this.rebuildFromPhase(this.phase);
+		this.queueUrlSync();
 	}
 
 	updateFlagsAndRebuild(update: () => void) {
 		update();
 		this.rebuildFromPhase(this.phase);
+		this.queueUrlSync();
 	}
 
 	updateOverlaySize() {
@@ -129,6 +142,8 @@ export class Visualizer {
 	}
 
 	mount() {
+		this.hydrateFromLocation();
+
 		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
 			this.running = false;
 		}
@@ -167,6 +182,7 @@ export class Visualizer {
 				this.publishPaths();
 				this.scheduleConnectorUpdate();
 			}
+			this.queueUrlSync();
 		});
 
 		this.rebuildFromPhase(this.phase);
@@ -176,6 +192,7 @@ export class Visualizer {
 		return () => {
 			this.#rafLoop.stop();
 			this.#connectorFrame.cancel();
+			window.clearTimeout(this.#urlTimer);
 			window.removeEventListener('resize', handleResize);
 			window.removeEventListener('scroll', handleScroll, true);
 			if (resizeObserver && this.visualizationEl) {
@@ -189,5 +206,60 @@ export class Visualizer {
 		this.turns = 0;
 		this.running = false;
 		this.rebuildFromPhase(this.phase);
+		this.queueUrlSync();
+	}
+
+	toUrlState(): VizUrlState {
+		return {
+			phase: this.phase,
+			speed: this.speed,
+			unit: this.unit,
+			showSin: this.showSin,
+			showCos: this.showCos,
+			showTan: this.showTan,
+			tanClamp: this.tanClamp,
+			showTanConstruction: this.showTanConstruction,
+			running: this.running
+		};
+	}
+
+	applyUrlState(state: VizUrlState, { rebuild = true } = {}) {
+		this.#suppressUrl = true;
+		this.phase = state.phase;
+		this.speed = state.speed;
+		this.unit = state.unit;
+		this.showSin = state.showSin;
+		this.showCos = state.showCos;
+		this.showTan = state.showTan;
+		this.tanClamp = state.tanClamp;
+		this.showTanConstruction = state.showTanConstruction;
+		this.running = state.running;
+		if (rebuild) this.rebuildFromPhase(this.phase);
+		this.#suppressUrl = false;
+	}
+
+	hydrateFromLocation() {
+		if (typeof window === 'undefined') return;
+		const search = window.location.search.replace(/^\?/, '');
+		if (!search) return;
+		this.applyUrlState(parseVizSearchParams(search, DEFAULT_VIZ_URL_STATE));
+	}
+
+	queueUrlSync() {
+		if (this.#suppressUrl || typeof window === 'undefined') return;
+		window.clearTimeout(this.#urlTimer);
+		this.#urlTimer = window.setTimeout(() => {
+			replaceUrlSearch(serializeVizSearchParams(this.toUrlState()));
+		}, 120);
+	}
+
+	async copyShareLink() {
+		replaceUrlSearch(serializeVizSearchParams(this.toUrlState()));
+		const url = window.location.href;
+		if (navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(url);
+			return url;
+		}
+		return url;
 	}
 }
