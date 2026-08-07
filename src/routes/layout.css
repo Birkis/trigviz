@@ -1,3 +1,40 @@
 @import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
+
+@theme {
+	--font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Palatino, serif;
+	--font-sans: 'Source Sans 3', 'Segoe UI', sans-serif;
+	--color-sin: #10b981;
+	--color-cos: #3b82f6;
+	--color-tan: #f59e0b;
+	--color-radius: #f43f5e;
+}
+
+:root {
+	--color-sin: #10b981;
+	--color-cos: #3b82f6;
+	--color-tan: #f59e0b;
+	--color-radius: #f43f5e;
+	--panel-border: rgba(255, 255, 255, 0.1);
+	--panel-bg: rgba(255, 255, 255, 0.05);
+}
+
+@layer base {
+	html {
+		font-family: var(--font-sans);
+	}
+}
+
+@layer components {
+	.viz-panel {
+		border-radius: 1rem;
+		border: 1px solid var(--panel-border);
+		background: var(--panel-bg);
+		padding: 1.25rem;
+		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+		backdrop-filter: blur(12px);
+	}
+
+	.font-display {
+		font-family: var(--font-display);
+	}
+}

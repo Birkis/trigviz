@@ -1,1 +1,7 @@
-// place files you want to import through the `$lib` alias in this folder.
+export * from './math/trig';
+export * from './sim/animation';
+export * from './sim/connector';
+export * from './sim/curveSampler';
+export * from './sim/pathBuilder';
+export * from './sim/plotGeometry';
+export * from './sim/ringBuffer';
