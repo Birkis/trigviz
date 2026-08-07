@@ -1,3 +1,4 @@
+export * from './math/archimedes';
 export * from './math/trig';
 export * from './sim/animation';
 export * from './sim/connector';
