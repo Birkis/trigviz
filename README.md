@@ -10,6 +10,7 @@ Interactive SvelteKit visualization of the unit circle that draws sine, cosine, 
 - Optional tangent-line construction on the unit circle
 - Full sin/cos/tan curves on mobile and desktop
 - Keyboard controls for fast exploration (scrubbing auto-pauses)
+- Archimedes π page (`/pi`): outer/inner polygons squeeze toward π by cutting and adding corners
 
 ## Controls
 

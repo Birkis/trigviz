@@ -51,6 +51,15 @@
 			A rotating radius on the unit circle drives the waveforms. Pause, scrub theta, and explore how
 			the projections map into the curves — on any screen size.
 		</p>
+		<nav class="mt-1 flex flex-wrap gap-3 text-sm">
+			<span class="rounded-xl bg-white/10 px-3 py-1.5 text-slate-100">Unit circle</span>
+			<a
+				href="/pi"
+				class="rounded-xl border border-teal-300/30 bg-teal-400/10 px-3 py-1.5 text-teal-100 transition hover:bg-teal-400/20"
+			>
+				π from polygons →
+			</a>
+		</nav>
 	</header>
 
 	<div class="sr-only" aria-live="polite" aria-atomic="true">
