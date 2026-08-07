@@ -1,4 +1,13 @@
 <script lang="ts">
+	import {
+		ANGLE_PRESETS,
+		displayFromPhase,
+		formatAngle,
+		phaseFromDisplay,
+		type AngleUnit
+	} from '$lib/math/angles';
+	import { TAU } from '$lib/math/trig';
+
 	type ControlsProps = {
 		running: boolean;
 		speed: number;
@@ -9,7 +18,7 @@
 		showTan: boolean;
 		tanClamp: number;
 		showTanConstruction: boolean;
-		tau: number;
+		unit: AngleUnit;
 		onToggleRunning: () => void;
 		onReset: () => void;
 		onSpeedChange: (value: number) => void;
@@ -19,6 +28,8 @@
 		onShowTanChange: (value: boolean) => void;
 		onTanClampChange: (value: number) => void;
 		onTanConstructionChange: (value: boolean) => void;
+		onUnitChange: (value: AngleUnit) => void;
+		onCopyLink: () => void;
 	};
 
 	let {
@@ -31,7 +42,7 @@
 		showTan,
 		tanClamp,
 		showTanConstruction,
-		tau,
+		unit,
 		onToggleRunning,
 		onReset,
 		onSpeedChange,
@@ -40,8 +51,16 @@
 		onShowCosChange,
 		onShowTanChange,
 		onTanClampChange,
-		onTanConstructionChange
+		onTanConstructionChange,
+		onUnitChange,
+		onCopyLink
 	}: ControlsProps = $props();
+
+	let copyLabel = $state('Copy link');
+
+	const phaseDisplay = $derived(displayFromPhase(phase, unit));
+	const phaseMax = $derived(unit === 'deg' ? 360 : TAU);
+	const phaseStep = $derived(unit === 'deg' ? 0.1 : 0.0005);
 
 	function readNumber(event: Event) {
 		const value = Number((event.currentTarget as HTMLInputElement).value);
@@ -55,12 +74,20 @@
 
 	function handlePhaseInput(event: Event) {
 		const value = readNumber(event);
-		if (value !== null) onPhaseChange(value);
+		if (value !== null) onPhaseChange(phaseFromDisplay(value, unit));
 	}
 
 	function handleTanClampInput(event: Event) {
 		const value = readNumber(event);
 		if (value !== null) onTanClampChange(value);
+	}
+
+	async function handleCopyLink() {
+		onCopyLink();
+		copyLabel = 'Copied';
+		window.setTimeout(() => {
+			copyLabel = 'Copy link';
+		}, 1500);
 	}
 </script>
 
@@ -82,10 +109,41 @@
 			Reset
 		</button>
 
+		<button
+			type="button"
+			class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+			onclick={handleCopyLink}
+		>
+			{copyLabel}
+		</button>
+
+		<div class="flex items-center gap-1 rounded-xl border border-white/15 p-1 text-sm">
+			<button
+				type="button"
+				class="rounded-lg px-3 py-1.5 font-semibold transition {unit === 'rad'
+					? 'bg-white text-slate-900'
+					: 'text-white/80 hover:bg-white/10'}"
+				aria-pressed={unit === 'rad'}
+				onclick={() => onUnitChange('rad')}
+			>
+				rad
+			</button>
+			<button
+				type="button"
+				class="rounded-lg px-3 py-1.5 font-semibold transition {unit === 'deg'
+					? 'bg-white text-slate-900'
+					: 'text-white/80 hover:bg-white/10'}"
+				aria-pressed={unit === 'deg'}
+				onclick={() => onUnitChange('deg')}
+			>
+				deg
+			</button>
+		</div>
+
 		<label class="flex items-center gap-2 text-sm text-slate-200">
 			<span class="w-14 text-slate-400">Speed</span>
 			<input
-				class="h-2 w-56 cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
+				class="h-2 w-40 cursor-pointer appearance-none rounded-full bg-white/20 accent-white sm:w-56"
 				type="range"
 				min="0"
 				max="8"
@@ -98,7 +156,22 @@
 
 		<div class="ml-auto flex flex-wrap items-center gap-2 text-sm text-slate-300">
 			<span class="rounded-full bg-white/10 px-3 py-1">Turns: {turns}</span>
-			<span class="rounded-full bg-white/10 px-3 py-1">Theta: {phase.toFixed(3)} rad</span>
+			<span class="rounded-full bg-white/10 px-3 py-1">Theta: {formatAngle(phase, unit, 3)}</span>
+		</div>
+	</div>
+
+	<div class="mt-4">
+		<p class="mb-2 text-xs tracking-[0.2em] text-slate-400 uppercase">Angle presets</p>
+		<div class="flex flex-wrap gap-2">
+			{#each ANGLE_PRESETS as preset (preset.id)}
+				<button
+					type="button"
+					class="rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-white/90 transition hover:bg-white/10"
+					onclick={() => onPhaseChange(preset.radians)}
+				>
+					{preset.label}
+				</button>
+			{/each}
 		</div>
 	</div>
 
@@ -163,16 +236,16 @@
 				class="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
 				type="range"
 				min="0"
-				max={tau}
-				step="0.0005"
-				value={phase}
+				max={phaseMax}
+				step={phaseStep}
+				value={phaseDisplay}
 				oninput={handlePhaseInput}
 			/>
 		</label>
 	</div>
 
 	<p class="mt-3 text-xs text-slate-400">
-		Keyboard: Space to pause/run, arrows to scrub θ (hold Shift for larger steps). Scrubbing
-		auto-pauses.
+		Drag the radius tip or the curve's phase line to scrub θ. Keyboard: Space to pause/run, arrows
+		to nudge (Shift for larger steps). Scrubbing auto-pauses.
 	</p>
 </section>

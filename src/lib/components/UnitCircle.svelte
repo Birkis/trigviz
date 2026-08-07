@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { formatAngle, type AngleUnit } from '$lib/math/angles';
+	import { phaseFromCirclePointer } from '$lib/sim/pointerScrub';
 	import { createCircleGeometry, createTailGeometry } from '$lib/sim/plotGeometry';
 
 	type Props = {
@@ -8,8 +10,10 @@
 		tanv: number | null;
 		tailPath: string;
 		showTanConstruction: boolean;
+		unit?: AngleUnit;
 		circleSize?: number;
 		svgEl?: SVGSVGElement | null;
+		onPhaseScrub?: (phase: number) => void;
 	};
 
 	let {
@@ -19,14 +23,21 @@
 		tanv,
 		tailPath,
 		showTanConstruction,
+		unit = 'rad',
 		circleSize = 340,
-		svgEl = $bindable<SVGSVGElement | null>(null)
+		svgEl = $bindable<SVGSVGElement | null>(null),
+		onPhaseScrub
 	}: Props = $props();
 
 	const geometry = $derived(createCircleGeometry(circleSize));
 	const tail = $derived(createTailGeometry(circleSize));
 	const { cx, cy, r, pad, tanLineX } = $derived(geometry);
 	const { tailW, tailH, tailPad, tailMid, tailAmp } = $derived(tail);
+
+	let dragging = $state(false);
+
+	const tipX = $derived(cx + r * cosv);
+	const tipY = $derived(cy - r * sinv);
 
 	const tanIntersection = $derived.by(() => {
 		if (tanv === null || Math.abs(cosv) < 1e-8) return null;
@@ -49,21 +60,51 @@
 			labelY: cy - labelRadius * Math.sin(labelAngle)
 		};
 	});
+
+	function scrubFromEvent(event: PointerEvent) {
+		if (!svgEl || !onPhaseScrub) return;
+		const next = phaseFromCirclePointer(svgEl, event.clientX, event.clientY, cx, cy);
+		if (next !== null) onPhaseScrub(next);
+	}
+
+	function handlePointerDown(event: PointerEvent) {
+		if (!onPhaseScrub || !svgEl) return;
+		dragging = true;
+		svgEl.setPointerCapture(event.pointerId);
+		scrubFromEvent(event);
+	}
+
+	function handlePointerMove(event: PointerEvent) {
+		if (!dragging) return;
+		scrubFromEvent(event);
+	}
+
+	function handlePointerUp(event: PointerEvent) {
+		if (!svgEl) return;
+		dragging = false;
+		if (svgEl.hasPointerCapture(event.pointerId)) {
+			svgEl.releasePointerCapture(event.pointerId);
+		}
+	}
 </script>
 
 <div class="viz-panel">
 	<div class="mb-4 flex items-center justify-between text-sm text-slate-200">
 		<span class="font-semibold tracking-[0.2em] uppercase">Unit Circle</span>
-		<span class="text-xs text-slate-400">projections</span>
+		<span class="text-xs text-slate-400">drag the tip to scrub</span>
 	</div>
 
 	<div class="flex flex-col gap-6 lg:flex-row lg:items-center">
 		<svg
 			viewBox={`0 0 ${circleSize} ${circleSize}`}
-			class="h-auto w-full lg:w-[60%]"
+			class="h-auto w-full touch-none lg:w-[60%] {onPhaseScrub ? 'cursor-crosshair' : ''}"
 			role="img"
-			aria-label="Unit circle with sin, cos, and tan projections"
+			aria-label="Unit circle with sin, cos, and tan projections. Drag to scrub theta."
 			bind:this={svgEl}
+			onpointerdown={handlePointerDown}
+			onpointermove={handlePointerMove}
+			onpointerup={handlePointerUp}
+			onpointercancel={handlePointerUp}
 		>
 			<title>Unit circle</title>
 			<desc>A rotating radius with sin and cos projections for the current angle.</desc>
@@ -101,7 +142,7 @@
 				text-anchor="middle"
 				dominant-baseline="middle"
 			>
-				θ = {phase.toFixed(2)}
+				θ = {formatAngle(phase, unit, 2)}
 			</text>
 
 			{#if showTanConstruction}
@@ -131,9 +172,9 @@
 			{/if}
 
 			<line
-				x1={cx + r * cosv}
-				y1={cy - r * sinv}
-				x2={cx + r * cosv}
+				x1={tipX}
+				y1={tipY}
+				x2={tipX}
 				y2={cy}
 				stroke="var(--color-sin)"
 				stroke-width="2.5"
@@ -141,7 +182,7 @@
 			/>
 			{#if Math.abs(sinv) > 0.15}
 				<text
-					x={cx + r * cosv + 8}
+					x={tipX + 8}
 					y={cy - (r * sinv) / 2}
 					font-size="11"
 					fill="var(--color-sin)"
@@ -151,10 +192,10 @@
 				</text>
 			{/if}
 			<line
-				x1={cx + r * cosv}
-				y1={cy - r * sinv}
+				x1={tipX}
+				y1={tipY}
 				x2={cx}
-				y2={cy - r * sinv}
+				y2={tipY}
 				stroke="var(--color-cos)"
 				stroke-width="2.5"
 				stroke-dasharray="5 4"
@@ -162,7 +203,7 @@
 			{#if Math.abs(cosv) > 0.15}
 				<text
 					x={cx + (r * cosv) / 2}
-					y={cy - r * sinv - 8}
+					y={tipY - 8}
 					font-size="11"
 					fill="var(--color-cos)"
 					text-anchor="middle"
@@ -174,13 +215,21 @@
 			<line
 				x1={cx}
 				y1={cy}
-				x2={cx + r * cosv}
-				y2={cy - r * sinv}
+				x2={tipX}
+				y2={tipY}
 				stroke="var(--color-radius)"
 				stroke-width="3"
 				stroke-linecap="round"
 			/>
-			<circle cx={cx + r * cosv} cy={cy - r * sinv} r="6" fill="var(--color-radius)" />
+			<circle
+				cx={tipX}
+				cy={tipY}
+				r="8"
+				fill="var(--color-radius)"
+				stroke="rgba(255,255,255,0.45)"
+				stroke-width="2"
+				class={onPhaseScrub ? 'cursor-grab' : ''}
+			/>
 
 			<text x={pad} y={pad + 6} font-size="14" fill="rgba(255,255,255,0.9)">
 				(cos, sin) = ({cosv.toFixed(3)}, {sinv.toFixed(3)})
